@@ -68,13 +68,16 @@ func (m ConcurrentMap) Upsert(key string, value interface{}, cb UpsertCb) (res i
 
 type CompareCb func(exist bool, valueInMap interface{}, newValue interface{}) interface{}
 
-// Insert or Update - updates existing element or inserts a new one using UpsertCb
-func (m ConcurrentMap) Compare(key string, value interface{}, cb UpsertCb) (res interface{}) {
+// Insert or Update - updates existing element and return compare result
+func (m ConcurrentMap) UpdateCompare(key string, value interface{}, update_cb UpsertCb, compare_cb CompareCb) (res interface{}) {
 	shard := m.GetShard(key)
 	shard.Lock()
 	v, ok := shard.items[key]
-	res = cb(ok, v, value)
-	shard.items[key] = value
+	new_value := update_cb(ok, v, value)
+	res = compare_cb(ok, v, new_value)
+	if new_value != nil {
+		shard.items[key] = new_value
+	}
 	shard.Unlock()
 	return res
 }
